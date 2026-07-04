@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XAUUSD Desk — Position Calculator + News Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --bg:#12151a;
+    --panel:#1a1e26;
+    --panel-raised:#20252f;
+    --line:#2c323e;
+    --text:#e8e9ec;
+    --muted:#8b93a1;
+    --gold:#d4af37;
+    --gold-dim:#3a3320;
+    --red:#e0574a;
+    --red-dim:#3a2320;
+    --amber:#e0a83a;
+    --amber-dim:#3a2f1a;
+    --green:#4caf7d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 400px at 20% -10%, rgba(212,175,55,0.06), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    padding:0 0 60px;
+  }
+
+  /* ===== HEADER / TICKER ===== */
+  .deskbar{
+    background:linear-gradient(180deg, #171a20, #12151a);
+    border-bottom:1px solid var(--line);
+    padding:18px 24px 16px;
+  }
+  .deskbar-inner{
+    max-width:960px;
+    margin:0 auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .deskbar h1{
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700;
+    font-weight:700;
+    font-size:22px;
+    margin:0 0 3px;
+    letter-spacing:-0.01em;
+  }
+  .deskbar h1 span{ color:var(--gold); }
+  .deskbar .sub{ font-size:12px; color:var(--muted); }
+  .deskbar .clock{
+    text-align:right;
+    font-family: 'Courier New', monospace;
+  }
+  .deskbar .clock .date{ font-size:14px; color:var(--text); }
+  .deskbar .clock .countdown{ font-size:11.5px; color:var(--gold); margin-top:3px; }
+
+  /* ===== TABS ===== */
+  .tabs{
+    max-width:960px;
+    margin:20px auto 0;
+    padding:0 24px;
+    display:flex;
+    gap:6px;
+  }
+  .tab-btn{
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700;
+    font-weight:600;
+    font-size:13.5px;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+    padding:10px 18px;
+    border-radius:8px 8px 0 0;
+    cursor:pointer;
+    border-bottom:none;
+    position:relative;
+    top:1px;
+  }
+  .tab-btn.active{
+    background:var(--panel);
+    color:var(--gold);
+    border-color:var(--line);
+  }
+
+  .tab-content{ display:none; max-width:960px; margin:0 auto; padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:0 8px 8px 8px; }
+  .tab-content.active{ display:block; }
+
+  /* ===== CALCULATOR ===== */
+  .calc-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+  }
+  @media (max-width:680px){ .calc-grid{ grid-template-columns:1fr; } }
+
+  .field{ margin-bottom:15px; }
+  label{
+    display:block;
+    font-family: 'Courier New', monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  input[type=number]{
+    width:100%;
+    font-family: 'Courier New', monospace;
+    font-size:15px;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:var(--bg);
+    color:var(--text);
+  }
+  input[type=number]:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+
+  .btn-row{ display:flex; gap:8px; }
+  .toggle-btn{
+    flex:1;
+    font-family: 'Courier New', monospace;
+    font-size:12px;
+    padding:9px 6px;
+    border:1px solid var(--line);
+    background:var(--bg);
+    color:var(--text);
+    border-radius:5px;
+    cursor:pointer;
+  }
+  .toggle-btn.active{ background:var(--gold); border-color:var(--gold); color:#1a1508; font-weight:600; }
+  .toggle-btn.warn.active{ background:var(--red); border-color:var(--red); color:#fff; }
+
+  .result-panel{
+    background:var(--panel-raised);
+    border:1px solid var(--gold);
+    border-radius:8px;
+    padding:18px 20px;
+    height:fit-content;
+  }
+  .headline-label{ text-align:center; font-family: 'Courier New', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+  .headline{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:700; font-size:32px; text-align:center; padding:8px 0 12px; color:var(--gold); }
+  .result-row{ display:flex; justify-content:space-between; padding:6px 0; border-top:1px dashed var(--line); font-size:12.5px; }
+  .result-row:first-of-type{ border-top:none; }
+  .result-label{ color:var(--muted); }
+  .result-value{ font-family: 'Courier New', monospace; font-weight:600; }
+
+  .flag{ margin-top:12px; font-size:11.5px; color:var(--red); background:var(--red-dim); border:1px solid var(--red); border-radius:5px; padding:8px 10px; display:none; }
+  .flag.show{ display:block; }
+
+  .footnote{ font-size:11px; color:var(--muted); margin-top:16px; line-height:1.5; grid-column:1 / -1; }
+
+  /* ===== CALENDAR ===== */
+  .cal-legend{ display:flex; gap:16px; margin-bottom:16px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  .cal-legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .dot{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:5px;
+  }
+  .cal-dow{
+    font-family: 'Courier New', monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-align:center;
+    padding-bottom:4px;
+  }
+  .cal-day{
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:5px;
+    min-height:72px;
+    padding:6px;
+    font-size:10.5px;
+    position:relative;
+  }
+  .cal-day.empty{ background:transparent; border:none; }
+  .cal-day .num{ font-family: 'Courier New', monospace; font-size:11px; color:var(--muted); }
+  .cal-day.high{ background:var(--red-dim); border-color:var(--red); }
+  .cal-day.high .num{ color:var(--red); font-weight:700; }
+  .cal-day.medium{ background:var(--amber-dim); border-color:var(--amber); }
+  .cal-day.medium .num{ color:var(--amber); font-weight:700; }
+  .cal-day.today{ box-shadow:0 0 0 2px var(--gold) inset; }
+  .cal-day .evt{ font-size:9.5px; line-height:1.3; margin-top:3px; color:var(--text); }
+  .cal-day .evt.gann{ color:var(--gold); font-weight:600; }
+  .cal-day textarea{
+    width:100%; background:transparent; border:none; color:var(--muted);
+    font-size:9px; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; resize:none; margin-top:2px;
+    min-height:22px; padding:0;
+  }
+  .cal-day textarea:focus{ outline:1px dashed var(--line); color:var(--text); }
+
+  .month-note{
+    margin-top:18px;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:12px 14px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  .month-note b{ color:var(--gold); }
+
+  /* ===== JOURNAL ===== */
+  .stat-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:18px; }
+  @media (max-width:680px){ .stat-row{ grid-template-columns:repeat(2, 1fr); } }
+  .stat{ background:var(--panel-raised); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .stat .lbl{ font-family: 'Courier New', monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
+  .stat .val{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:700; font-size:20px; margin-top:4px; }
+  .stat .val.pos{ color:var(--green); }
+  .stat .val.neg{ color:var(--red); }
+
+  .j-table{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .j-table thead th{ font-family: 'Courier New', monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:#12151a; background:var(--gold); text-align:left; padding:8px 8px; }
+  .j-table tbody tr{ border-top:1px solid var(--line); }
+  .j-table tbody tr:nth-child(even){ background:rgba(255,255,255,0.015); }
+  .j-table td{ padding:6px 8px; font-size:12px; vertical-align:middle; }
+  .j-table td input, .j-table td select{ width:100%; background:transparent; border:none; color:var(--text); font-family: 'Courier New', monospace; font-size:12px; padding:3px 2px; }
+  .j-table td select option{ background:var(--panel); }
+  .j-table td input:focus, .j-table td select:focus{ outline:1px dashed var(--gold); }
+  .day-num{ font-family: 'Courier New', monospace; color:var(--muted); text-align:center; width:28px; }
+  .result-cell.pos input{ color:var(--green); }
+  .result-cell.neg input{ color:var(--red); }
+  .run-cell{ font-family: 'Courier New', monospace; text-align:right; color:var(--muted); font-size:11.5px; }
+  .run-cell.running.pos{ color:var(--green); }
+  .run-cell.running.neg{ color:var(--red); }
+  .j-table tbody tr.row-profit{ background:var(--green-dim); }
+  .j-table tbody tr.row-loss{ background:var(--red-dim); }
+  .sl-hit-cell{ text-align:center; }
+  .sl-hit-cell input[type=checkbox]{ width:16px; height:16px; accent-color:var(--red); cursor:pointer; }
+  .stat .val.warn{ color:var(--red); }
+
+  .month-summary{ margin-top:18px; background:var(--panel-raised); border:1px solid var(--gold); border-radius:8px; padding:18px 20px; text-align:center; }
+  .month-summary .lbl{ font-family: 'Courier New', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+  .month-summary .big{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:700; font-size:34px; margin:6px 0; }
+  .month-summary .big.pos{ color:var(--green); }
+  .month-summary .big.neg{ color:var(--red); }
+  .month-summary .verdict{ font-size:13px; color:var(--text); }
+
+  .j-actions{ display:flex; gap:10px; margin-top:14px; justify-content:flex-end; align-items:center; }
+  .btn{ font-family: 'Courier New', monospace; font-size:11.5px; padding:8px 14px; border-radius:6px; cursor:pointer; border:1px solid var(--line); background:var(--panel-raised); color:var(--text); }
+  .btn.primary{ background:var(--gold); color:#1a1508; border-color:var(--gold); font-weight:600; }
+  .j-status{ font-size:11px; color:var(--muted); font-family: 'Courier New', monospace; }
+
+  @media (max-width:720px){
+    .j-table thead{ display:none; }
+    .j-table, .j-table tbody, .j-table tr, .j-table td{ display:block; width:100%; }
+    .j-table tbody tr{ border:1px solid var(--line); border-radius:6px; margin-bottom:8px; padding:8px; }
+    .j-table td{ display:flex; justify-content:space-between; align-items:center; padding:4px 2px; }
+    .j-table td::before{ content:attr(data-label); font-family: 'Courier New', monospace; font-size:9px; text-transform:uppercase; color:var(--muted); margin-right:8px; }
+    .run-cell{ text-align:left; }
+  }
+
+  /* ===== SESSIONS ===== */
+  .session-now{
+    background:var(--panel-raised); border:1px solid var(--gold); border-radius:8px;
+    padding:16px 20px; text-align:center; margin-bottom:18px;
+  }
+  .session-now .lbl{ font-family: 'Courier New', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+  .session-now .live{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:700; font-size:22px; color:var(--gold); margin-top:4px; }
+  .session-now .sub2{ font-size:11.5px; color:var(--muted); margin-top:4px; }
+
+  .session-cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin-bottom:20px; }
+  .session-card{ background:var(--panel-raised); border:1px solid var(--line); border-radius:8px; padding:12px 14px; position:relative; }
+  .session-card.active{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  .session-card .name{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:600; font-size:14px; }
+  .session-card .time{ font-family: 'Courier New', monospace; font-size:11px; color:var(--muted); margin-top:4px; }
+  .session-card .badge{ position:absolute; top:10px; right:10px; width:8px; height:8px; border-radius:50%; background:var(--green); display:none; }
+  .session-card.active .badge{ display:block; }
+
+  .session-perf-table{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .session-perf-table th{ font-family: 'Courier New', monospace; font-size:9.5px; text-transform:uppercase; color:#12151a; background:var(--gold); text-align:left; padding:8px; }
+  .session-perf-table td{ padding:7px 8px; font-size:12px; border-top:1px solid var(--line); }
+  .session-perf-table td.best{ color:var(--gold); font-weight:600; }
+  .session-perf-table tr.top-session td{ background:var(--gold-dim); }
+
+  /* ===== BACKTEST ===== */
+  .bt-table{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .bt-table thead th{ font-family: 'Courier New', monospace; font-size:9.5px; text-transform:uppercase; color:#12151a; background:var(--gold); text-align:left; padding:8px; }
+  .bt-table tbody tr{ border-top:1px solid var(--line); }
+  .bt-table tbody tr:nth-child(even){ background:rgba(255,255,255,0.015); }
+  .bt-table td{ padding:6px 8px; font-size:12px; }
+  .bt-table td input, .bt-table td select{ width:100%; background:transparent; border:none; color:var(--text); font-family: 'Courier New', monospace; font-size:12px; padding:3px 2px; }
+  .bt-table td select option{ background:var(--panel); }
+  .bt-table td input:focus, .bt-table td select:focus{ outline:1px dashed var(--gold); }
+  .bt-table tr.bt-win{ background:var(--green-dim); }
+  .bt-table tr.bt-loss{ background:var(--red-dim); }
+  .bt-del{ border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:14px; }
+  .bt-del:hover{ color:var(--red); }
+  @media (max-width:720px){
+    .bt-table thead{ display:none; }
+    .bt-table, .bt-table tbody, .bt-table tr, .bt-table td{ display:block; width:100%; }
+    .bt-table tbody tr{ border:1px solid var(--line); border-radius:6px; margin-bottom:8px; padding:8px; }
+    .bt-table td{ display:flex; justify-content:space-between; align-items:center; padding:4px 2px; }
+    .bt-table td::before{ content:attr(data-label); font-family: 'Courier New', monospace; font-size:9px; text-transform:uppercase; color:var(--muted); margin-right:8px; }
+  }
+
+  /* ===== AI INSIGHTS ===== */
+  .ai-card{ background:var(--panel-raised); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+  .ai-card h3{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-size:14.5px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .ai-card h3::before{ content:'✦'; color:var(--gold); }
+  .ai-card .desc{ font-size:11.5px; color:var(--muted); margin-bottom:10px; }
+  .ai-btn{ font-family: 'Courier New', monospace; font-size:12px; padding:8px 16px; border-radius:6px; cursor:pointer; border:1px solid var(--gold); background:transparent; color:var(--gold); }
+  .ai-btn:hover{ background:var(--gold); color:#1a1508; }
+  .ai-btn:disabled{ opacity:0.5; cursor:wait; }
+  .ai-output{ margin-top:12px; font-size:12.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; border-top:1px dashed var(--line); padding-top:10px; display:none; }
+  .ai-output.show{ display:block; }
+  .ai-output.loading{ color:var(--muted); font-style:italic; }
+  .ai-card textarea{
+    width:100%; min-height:70px; background:var(--bg); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size:12.5px; padding:8px 10px; margin-bottom:10px; resize:vertical;
+  }
+
+  /* ===== PATTERN LIBRARY ===== */
+  .pattern-section-title{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:600; font-size:15px; color:var(--gold); margin:22px 0 10px; }
+  .pattern-section-title:first-child{ margin-top:0; }
+  .pattern-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:12px; }
+  .pattern-card{ background:var(--panel-raised); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
+  .pattern-card .p-name{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:600; font-size:13.5px; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .p-badge{ font-family: 'Courier New', monospace; font-size:9px; text-transform:uppercase; padding:2px 6px; border-radius:3px; }
+  .p-badge.buy{ background:var(--green-dim); color:var(--green); border:1px solid var(--green); }
+  .p-badge.sell{ background:var(--red-dim); color:var(--red); border:1px solid var(--red); }
+  .p-badge.glossary{ background:var(--gold-dim); color:var(--gold); border:1px solid var(--gold); }
+  .pattern-card svg{ display:block; margin:6px auto 10px; }
+  .pattern-card .p-desc{ font-size:11.5px; color:var(--muted); line-height:1.55; }
+  .pattern-card .p-desc b{ color:var(--text); }
+
+  /* ===== PASSWORD GATE ===== */
+  #gate{
+    position:fixed; inset:0; background:var(--bg); z-index:9999;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #gate .gate-box{
+    background:var(--panel-raised); border:1px solid var(--gold); border-radius:10px;
+    padding:32px 28px; width:100%; max-width:320px; text-align:center;
+  }
+  #gate h2{ font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; color:var(--gold); margin:0 0 4px; font-size:20px; }
+  #gate p{ font-size:12px; color:var(--muted); margin:0 0 18px; }
+  #gate input{
+    width:100%; font-family: 'Courier New', monospace; font-size:15px; padding:10px;
+    border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text);
+    text-align:center; margin-bottom:12px;
+  }
+  #gate button{
+    width:100%; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-weight:700; font-weight:600; font-size:13px;
+    padding:10px; border-radius:6px; border:none; background:var(--gold); color:#1a1508; cursor:pointer;
+  }
+  #gate .err{ color:var(--red); font-size:11.5px; margin-top:10px; display:none; }
+  #app-content{ display:none; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-box">
+    <h2>XAUUSD Desk</h2>
+    <p>Private — enter passphrase to continue</p>
+    <input type="password" id="gatePass" placeholder="Passphrase" onkeydown="if(event.key==='Enter') checkGate()">
+    <button onclick="checkGate()">Unlock</button>
+    <div class="err" id="gateErr">Wrong passphrase — try again.</div>
+  </div>
+</div>
+
+<div id="app-content">
+
+<div class="deskbar">
+  <div class="deskbar-inner">
+    <div>
+      <h1>XAU<span>USD</span> Desk</h1>
+      <div class="sub">Position sizing + high-impact news calendar</div>
+    </div>
+    <div class="clock">
+      <div class="date" id="todayDate">—</div>
+      <div class="countdown" id="nextEvent">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('calc', this)">Position Calculator</button>
+  <button class="tab-btn" onclick="showTab('cal', this)">News Calendar — July 2026</button>
+  <button class="tab-btn" onclick="showTab('journal', this)">Trade Journal</button>
+  <button class="tab-btn" onclick="showTab('sessions', this)">Sessions</button>
+  <button class="tab-btn" onclick="showTab('backtest', this)">Backtesting Log</button>
+  <button class="tab-btn" onclick="showTab('ai', this)">AI Insights</button>
+  <button class="tab-btn" onclick="showTab('patterns', this)">Pattern Library</button>
+</div>
+
+<!-- ===== CALCULATOR TAB ===== -->
+<div class="tab-content active" id="calc">
+  <div class="calc-grid">
+    <div>
+      <div class="field">
+        <label>Direction</label>
+        <div class="btn-row">
+          <button class="toggle-btn active" id="buyBtn" onclick="setDirection('buy')">Buy / Long</button>
+          <button class="toggle-btn" id="sellBtn" onclick="setDirection('sell')">Sell / Short</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Account size (USD)</label>
+        <input type="number" id="account" value="10000" min="0">
+      </div>
+      <div class="field">
+        <label>Risk per trade</label>
+        <div class="btn-row">
+          <button class="toggle-btn" data-risk="0.5" onclick="setRisk(0.5, this)">0.5%</button>
+          <button class="toggle-btn active" data-risk="1" onclick="setRisk(1, this)">1%</button>
+          <button class="toggle-btn warn" data-risk="2" onclick="setRisk(2, this)">2%</button>
+          <button class="toggle-btn warn" onclick="enableCustom(this)">Custom</button>
+        </div>
+        <input type="number" id="customRisk" placeholder="Custom risk %" style="margin-top:8px; display:none;" step="0.1" min="0">
+      </div>
+      <div class="field">
+        <label>Entry price</label>
+        <input type="number" id="entry" value="3400" step="0.01">
+      </div>
+      <div class="field">
+        <label>Stop loss price</label>
+        <input type="number" id="slPrice" value="3380" step="0.01">
+      </div>
+      <div class="field">
+        <label>Take profit price</label>
+        <input type="number" id="tpPrice" value="3450" step="0.01">
+      </div>
+      <div class="field">
+        <label>Pip size (price move = 1 pip) — XAUUSD ≈ 0.1</label>
+        <input type="number" id="pipSize" value="0.1" min="0.0001" step="0.0001">
+      </div>
+      <div class="field">
+        <label>Pip value per 0.01 lot (USD) — XAUUSD ≈ 1</label>
+        <input type="number" id="pipValue" value="1" min="0.01" step="0.01">
+      </div>
+    </div>
+
+    <div class="result-panel">
+      <div class="headline-label">Position size</div>
+      <div class="headline" id="lotOut">0.00 lots</div>
+      <div class="result-row"><span class="result-label">$ at risk</span><span class="result-value" id="riskOut">$0</span></div>
+      <div class="result-row"><span class="result-label">Risk % of account</span><span class="result-value" id="riskPctOut">0%</span></div>
+      <div class="result-row"><span class="result-label">Stop distance</span><span class="result-value" id="stopPipsOut">0 pips</span></div>
+      <div class="result-row"><span class="result-label">Target distance</span><span class="result-value" id="tpPipsOut">0 pips</span></div>
+      <div class="result-row"><span class="result-label">Risk : Reward</span><span class="result-value" id="rrOut">1 : 0</span></div>
+      <div class="result-row"><span class="result-label">$ potential reward</span><span class="result-value" id="rewardOut">$0</span></div>
+      <div class="flag" id="flag">Risk above 1% — outside your stated rule.</div>
+      <div class="flag" id="rrFlag">R:R below 1:1.5 — reconsider vs your setup criteria.</div>
+      <div class="flag" id="dirFlag">SL/TP placement doesn't match selected direction.</div>
+      <div class="flag" id="newsFlag">⚠ Today is a high/medium-impact news day — check the calendar tab before entering.</div>
+    </div>
+
+    <div class="footnote">
+      Stop pips = |Entry − SL| ÷ Pip size · Lot size = (Account × Risk%) ÷ (Stop pips × Pip value) × 0.01<br>
+      SL comes from structure (order block / liquidity sweep), not from risk math. TP comes from your actual target, not from forcing a ratio.
+    </div>
+  </div>
+</div>
+
+<!-- ===== CALENDAR TAB ===== -->
+<div class="tab-content" id="cal">
+  <div class="cal-legend">
+    <span><span class="dot" style="background:var(--red);"></span>High impact — NFP / CPI / FOMC</span>
+    <span><span class="dot" style="background:var(--amber);"></span>Medium impact / bank holiday (thin liquidity)</span>
+    <span><span class="dot" style="background:var(--gold);"></span>Your Gann cycle date</span>
+  </div>
+
+  <div class="cal-grid" id="calGrid"></div>
+
+  <div class="month-note">
+    <b>Confirmed for July 2026:</b> Jun 2026 jobs report — Thu Jul 2 · June CPI — Tue Jul 14 · FOMC meeting — Mon Jul 27 through Wed Jul 29, rate decision typically announced on the final day · US bank holiday (Independence Day) — Sat Jul 4, thin liquidity into the long weekend.<br><br>
+    <b>Your own marker:</b> Jul 28 — Gann 180-day cycle date — falls right inside FOMC week. Worth being extra disciplined that week, not extra confident either direction.<br><br>
+    Click any day to jot a note (geopolitical headline, earnings, your own bias). This calendar is filled from what's known now — always cross-check exact release times close to the date, since central banks can shift schedules.
+  </div>
+</div>
+
+<!-- ===== JOURNAL TAB ===== -->
+<div class="tab-content" id="journal">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+    <div class="sub" style="font-size:12px; color:var(--muted);">30-day P/L log · saved automatically for this month</div>
+    <div style="font-family: 'Courier New', monospace; font-size:12px;">
+      Month: <input type="month" id="monthSel" value="2026-07" style="background:var(--panel-raised); border:1px solid var(--line); color:var(--text); padding:6px 8px; border-radius:5px;">
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="lbl">Days logged</div><div class="val" id="daysLogged">0 / 30</div></div>
+    <div class="stat"><div class="lbl">Win rate</div><div class="val" id="winRate">—</div></div>
+    <div class="stat"><div class="lbl">Best day</div><div class="val pos" id="bestDay">$0</div></div>
+    <div class="stat"><div class="lbl">Worst day</div><div class="val neg" id="worstDay">$0</div></div>
+    <div class="stat"><div class="lbl">SL hit this month</div><div class="val warn" id="slHitCount">0</div></div>
+  </div>
+
+  <table class="j-table">
+    <thead>
+      <tr><th>#</th><th>Date</th><th>Pair</th><th>Session</th><th>Pattern</th><th>Dir</th><th>Result ($)</th><th>SL Hit</th><th>Risk %</th><th>Notes</th><th>Running total</th></tr>
+    </thead>
+    <tbody id="journalBody"></tbody>
+  </table>
+
+  <div class="month-summary">
+    <div class="lbl">Month result</div>
+    <div class="big" id="monthTotal">$0</div>
+    <div class="verdict" id="verdictText">Log a trade to begin.</div>
+  </div>
+
+  <div class="j-actions">
+    <span class="j-status" id="statusMsg"></span>
+    <button class="btn" onclick="exportJournal()">Export JSON</button>
+    <label class="btn" style="cursor:pointer;">
+      Import JSON
+      <input type="file" id="importJournalFile" accept="application/json" style="display:none;" onchange="importJournal(event)">
+    </label>
+    <button class="btn" onclick="clearMonth()">Clear this month</button>
+    <button class="btn primary" onclick="saveJournal()">Save</button>
+  </div>
+</div>
+
+<!-- ===== SESSIONS TAB ===== -->
+<div class="tab-content" id="sessions">
+  <div class="session-now">
+    <div class="lbl">Right now</div>
+    <div class="live" id="liveSessionName">—</div>
+    <div class="sub2" id="liveSessionSub">Times shown in Ulyanovsk time (UTC+4) and UTC</div>
+  </div>
+
+  <div class="session-cards" id="sessionCards"></div>
+
+  <div class="sub" style="font-size:12px; color:var(--muted); margin-bottom:10px;">Performance by session — pulled from this month's Trade Journal (tag each entry's session in the Journal tab)</div>
+  <table class="session-perf-table">
+    <thead><tr><th>Session</th><th>Trades</th><th>Win rate</th><th>Total P/L</th></tr></thead>
+    <tbody id="sessionPerfBody"></tbody>
+  </table>
+
+  <div class="month-note">
+    <b>Standard session windows (UTC):</b> Sydney 22:00–07:00 · Tokyo 00:00–09:00 · London 08:00–16:30 · New York 13:00–22:00.<br><br>
+    <b>For XAUUSD specifically:</b> the London–New York overlap (13:00–16:30 UTC / 17:00–20:30 Ulyanovsk time) typically carries the highest volatility and volume — most gold SMC setups (liquidity sweeps, BOS) tend to be cleaner here than in the thin Asian session.
+  </div>
+</div>
+
+<!-- ===== BACKTEST TAB ===== -->
+<div class="tab-content" id="backtest">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+    <div class="sub" style="font-size:12px; color:var(--muted);">Paper-tested setups — no real or demo money, just chart review. Saved automatically.</div>
+    <button class="btn primary" onclick="addBacktestRow()">+ Add test</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="lbl">Tests logged</div><div class="val" id="btCount">0</div></div>
+    <div class="stat"><div class="lbl">Win rate</div><div class="val" id="btWinRate">—</div></div>
+    <div class="stat"><div class="lbl">Avg R multiple</div><div class="val" id="btAvgR">—</div></div>
+    <div class="stat"><div class="lbl">Best setup tag</div><div class="val" id="btBestTag">—</div></div>
+  </div>
+
+  <table class="bt-table">
+    <thead><tr><th>Date</th><th>Pair</th><th>Setup tag</th><th>Timeframe</th><th>Result</th><th>R multiple</th><th>Notes</th><th></th></tr></thead>
+    <tbody id="backtestBody"></tbody>
+  </table>
+
+  <div class="j-actions">
+    <span class="j-status" id="btStatus"></span>
+    <button class="btn" onclick="exportBacktest()">Export JSON</button>
+    <label class="btn" style="cursor:pointer;">
+      Import JSON
+      <input type="file" id="importBacktestFile" accept="application/json" style="display:none;" onchange="importBacktest(event)">
+    </label>
+    <button class="btn primary" onclick="saveBacktest()">Save</button>
+  </div>
+</div>
+
+<!-- ===== AI INSIGHTS TAB ===== -->
+<div class="tab-content" id="ai">
+  <div class="sub" style="font-size:12px; color:var(--muted); margin-bottom:16px;">These read your journal, backtest log, or a headline you paste — and give reflection, not trade signals. Always double-check anything important.</div>
+  <div class="flag show" style="margin-bottom:18px;">⚠ These AI buttons only work when this page is opened inside a Claude conversation (they call Claude's API, which needs Claude's environment). On this hosted/password-protected version, export your Journal/Backtest JSON and paste it into a Claude chat instead to get the same analysis.</div>
+
+  <div class="ai-card">
+    <h3>Monthly Trade Review</h3>
+    <div class="desc">Reads this month's journal (results, sessions, SL hits, notes) and flags real patterns — not predictions.</div>
+    <button class="ai-btn" onclick="runTradeReview(this)">Review this month</button>
+    <div class="ai-output" id="out-review"></div>
+  </div>
+
+  <div class="ai-card">
+    <h3>Weekly Summary</h3>
+    <div class="desc">Last 7 logged days, summarized in a few honest lines.</div>
+    <button class="ai-btn" onclick="runWeeklySummary(this)">Summarize last 7 days</button>
+    <div class="ai-output" id="out-weekly"></div>
+  </div>
+
+  <div class="ai-card">
+    <h3>Psychology Check</h3>
+    <div class="desc">Scans your trade notes for signs of revenge trading, overconfidence, or fear-based exits.</div>
+    <button class="ai-btn" onclick="runPsychCheck(this)">Check my notes</button>
+    <div class="ai-output" id="out-psych"></div>
+  </div>
+
+  <div class="ai-card">
+    <h3>Backtest Pattern Finder</h3>
+    <div class="desc">Looks across your backtesting log to find which setup patterns are actually consistent, not just highest win-rate.</div>
+    <button class="ai-btn" onclick="runBacktestPatterns(this)">Find patterns</button>
+    <div class="ai-output" id="out-bt"></div>
+  </div>
+
+  <div class="ai-card">
+    <h3>News Headline Explainer</h3>
+    <div class="desc">Paste any economic headline — get a short, educational note on how that type of event has historically moved gold. Not a prediction for what happens next.</div>
+    <textarea id="newsHeadlineInput" placeholder="e.g. Fed holds rates steady, signals two cuts in 2026"></textarea>
+    <button class="ai-btn" onclick="runNewsExplainer(this)">Explain</button>
+    <div class="ai-output" id="out-news"></div>
+  </div>
+</div>
+
+<!-- ===== PATTERN LIBRARY TAB ===== -->
+<div class="tab-content" id="patterns">
+  <div class="sub" style="font-size:12px; color:var(--muted); margin-bottom:16px;">Digitized from your Forex-P-Setup notes (Jan 2025). Use this as a reference while tagging trades in the Journal/Backtest tabs — matching is your own call, not automated.</div>
+
+  <div class="pattern-section-title">Candlestick Patterns</div>
+  <div class="pattern-grid">
+    <div class="pattern-card">
+      <div class="p-name">Hammer <span class="p-badge buy">Buy zone</span></div>
+      <svg width="120" height="60" viewBox="0 0 120 60"><line x1="60" y1="5" x2="60" y2="55" stroke="#8b93a1" stroke-width="2"/><rect x="50" y="8" width="20" height="14" fill="#4caf7d"/></svg>
+      <div class="p-desc">Small body near the top, long lower wick. Body should be roughly <b>2–3x weaker</b> (smaller) than the wick. Look for it sitting right at a support / buy zone.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Inverted Hammer <span class="p-badge sell">Sell zone</span></div>
+      <svg width="120" height="60" viewBox="0 0 120 60"><line x1="60" y1="5" x2="60" y2="55" stroke="#8b93a1" stroke-width="2"/><rect x="50" y="38" width="20" height="14" fill="#e0574a"/></svg>
+      <div class="p-desc">Small body near the bottom, long upper wick. A powerful reversal signal at resistance — body 2–3x weaker than the wick.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Bullish Engulfing <span class="p-badge buy">Buy zone</span></div>
+      <svg width="120" height="60" viewBox="0 0 120 60"><rect x="35" y="20" width="14" height="20" fill="#e0574a"/><rect x="55" y="8" width="20" height="42" fill="#4caf7d"/></svg>
+      <div class="p-desc">Small red candle followed by a big green candle that fully engulfs it. Marks a downtrend-to-reversal shift at a buy zone. Best read on 15m/30m timeframe.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Bearish Engulfing <span class="p-badge sell">Sell zone</span></div>
+      <svg width="120" height="60" viewBox="0 0 120 60"><rect x="35" y="20" width="14" height="20" fill="#4caf7d"/><rect x="55" y="8" width="20" height="42" fill="#e0574a"/></svg>
+      <div class="p-desc">Small green candle followed by a big red candle that fully engulfs it, right at resistance/sell zone. 15m/30m timeframe.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Hanging Man <span class="p-badge sell">Sell zone</span></div>
+      <svg width="120" height="60" viewBox="0 0 120 60"><line x1="60" y1="5" x2="60" y2="55" stroke="#8b93a1" stroke-width="2"/><rect x="50" y="8" width="20" height="14" fill="#e0574a"/></svg>
+      <div class="p-desc">Looks like a hammer but appears at resistance / top of a move. Needs confirmation — check for selling pressure before acting.</div>
+    </div>
+  </div>
+
+  <div class="pattern-section-title">Structure &amp; Entry Setup</div>
+  <div class="pattern-grid">
+    <div class="pattern-card">
+      <div class="p-name">Support / Resistance</div>
+      <div class="p-desc">Support = zone where buyers activate (buy zone). Resistance = zone where sellers activate (sell zone). Never trade blind breakouts — wait for confirmation before buying/selling through a level.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Trendline + 9 EMA Setup</div>
+      <div class="p-desc">Draw trendline on 4H/1H once trend is identified. Support trendline → buy side only. Resistance trendline → sell side only. Entry confirmation: 5-min candle closes with weak body beyond the 9 EMA. Use 30m/15m for the trendline touch, 5m for entry timing.</div>
+    </div>
+    <div class="pattern-card">
+      <div class="p-name">Market Structure (HH/HL/LH/LL)</div>
+      <div class="p-desc"><b>Uptrend</b>: Higher Highs + Higher Lows — don't sell into pullbacks, buy them. <b>Downtrend</b>: Lower Highs + Lower Lows — don't buy into pullbacks, sell them. Trend only changes when a HL (uptrend) or LH (downtrend) breaks, with 40–50% retracement confirming it.</div>
+    </div>
+  </div>
+
+  <div class="pattern-section-title">SMC Glossary</div>
+  <div class="pattern-grid">
+    <div class="pattern-card"><div class="p-name">BOS <span class="p-badge glossary">Break of Structure</span></div><div class="p-desc">Price makes a new high/low in the same direction as the trend — trend continuation confirmation.</div></div>
+    <div class="pattern-card"><div class="p-name">CHoCH <span class="p-badge glossary">Change of Character</span></div><div class="p-desc">First sign the trend itself may be reversing — opposite of BOS.</div></div>
+    <div class="pattern-card"><div class="p-name">OB <span class="p-badge glossary">Order Block</span></div><div class="p-desc">The last candle before a strong displacement move — where institutional orders likely sit.</div></div>
+    <div class="pattern-card"><div class="p-name">FVG <span class="p-badge glossary">Fair Value Gap</span></div><div class="p-desc">A 3-candle gap left by a sudden move. Valid only if price hasn't reacted to it yet. Buy FVG = gap left by a green candle; Sell FVG = gap left by a red candle.</div></div>
+    <div class="pattern-card"><div class="p-name">Liquidity <span class="p-badge glossary">External / Internal</span></div><div class="p-desc">Pools sit where the market's last strong buying/selling happened. External liquidity = 30m/1H zones. Internal liquidity = 5m/15m zones. Price often sweeps liquidity before reversing.</div></div>
+    <div class="pattern-card"><div class="p-name">MSS <span class="p-badge glossary">Market Structure Shift</span></div><div class="p-desc">After a liquidity sweep, watch the 5m timeframe for a swing high/low break — that's your entry trigger signal to look for, not act on blindly.</div></div>
+    <div class="pattern-card"><div class="p-name">Displacement</div><div class="p-desc">A strong, decisive candle that moves clean through a zone with force — usually what creates a fresh FVG/imbalance.</div></div>
+  </div>
+
+  <div class="pattern-section-title">Your Own Risk Rules (from notes)</div>
+  <div class="pattern-grid">
+    <div class="pattern-card"><div class="p-name">Lot sizing by capital</div><div class="p-desc">$100 → 0.01–0.03 lot · $300 → 0.05 lot · $1000 → 0.1 lot. Beginners: stick to micro lots (0.01–0.09).</div></div>
+    <div class="pattern-card"><div class="p-name">R:R discipline</div><div class="p-desc">Target 1:2 to 1:3 on every trade. If a loss happens, stop trading for the day — don't revenge trade.</div></div>
+    <div class="pattern-card"><div class="p-name">Trading windows</div><div class="p-desc">Morning 10–12, afternoon 2–6, evening 8–10 (your own noted windows) — or trade only when your setup criteria are actually met, SL always logical.</div></div>
+  </div>
+</div>
+
+<script>
+  /* ===== PASSWORD GATE (client-side only — change GATE_PASSWORD below) ===== */
+  const GATE_PASSWORD = "gold3860"; // <-- change this to your own passphrase
+  function checkGate(){
+    const val = document.getElementById('gatePass').value;
+    if(val === GATE_PASSWORD){
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+      try{ sessionStorage.setItem('gateUnlocked', '1'); }catch(e){ /* storage blocked — ok to skip */ }
+    } else {
+      document.getElementById('gateErr').style.display = 'block';
+    }
+  }
+  try{
+    if(sessionStorage.getItem('gateUnlocked') === '1'){
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+    }
+  }catch(e){ /* storage blocked (e.g. inside Claude's preview) — gate just stays visible, that's fine */ }
+
+  /* ===== LOCAL STORAGE SHIM (replaces Claude's window.storage for standalone hosting) ===== */
+  let storageAvailable = true;
+  try{
+    localStorage.setItem('__test__', '1');
+    localStorage.removeItem('__test__');
+  } catch(e){
+    storageAvailable = false;
+  }
+  window.storage = {
+    get: async (key) => {
+      if(!storageAvailable) throw new Error('storage unavailable');
+      const raw = localStorage.getItem(key);
+      if(raw === null) throw new Error('not found');
+      return { key, value: raw };
+    },
+    set: async (key, value) => {
+      if(!storageAvailable) throw new Error('storage unavailable');
+      localStorage.setItem(key, value);
+      return { key, value };
+    },
+    delete: async (key) => {
+      if(!storageAvailable) throw new Error('storage unavailable');
+      localStorage.removeItem(key);
+      return { key, deleted: true };
+    },
+    list: async (prefix) => {
+      if(!storageAvailable) return { keys: [] };
+      const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+      return { keys };
+    }
+  };
+
+  /* ===== CLOCK / COUNTDOWN ===== */
+  const events = [
+    {date:'2026-07-02', label:'NFP (Jun)', impact:'high'},
+    {date:'2026-07-04', label:'US Holiday', impact:'medium'},
+    {date:'2026-07-14', label:'CPI (Jun)', impact:'high'},
+    {date:'2026-07-27', label:'FOMC begins', impact:'medium'},
+    {date:'2026-07-28', label:'FOMC day 2 / Gann cycle', impact:'high', gann:true},
+    {date:'2026-07-29', label:'FOMC decision', impact:'high'},
+  ];
+
+  const today = new Date('2026-07-03T00:00:00');
+  document.getElementById('todayDate').textContent = today.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+
+  const upcoming = events
+    .map(e => ({...e, d:new Date(e.date+'T00:00:00')}))
+    .filter(e => e.d >= today)
+    .sort((a,b) => a.d - b.d)[0];
+  if(upcoming){
+    const days = Math.round((upcoming.d - today) / 86400000);
+    document.getElementById('nextEvent').textContent =
+      (days === 0 ? 'Today: ' : `In ${days}d: `) + upcoming.label;
+  }
+
+  const todayEvent = events.find(e => e.date === '2026-07-03');
+  if(todayEvent && (todayEvent.impact === 'high' || todayEvent.impact === 'medium')){
+    document.getElementById('newsFlag').classList.add('show');
+  }
+
+  /* ===== TABS ===== */
+  function showTab(id, btn){
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  /* ===== CALENDAR BUILD ===== */
+  const dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const grid = document.getElementById('calGrid');
+  dows.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+  // July 1 2026 is a Wednesday -> index 3
+  const firstDowIndex = 3;
+  const daysInMonth = 31;
+  for(let i=0;i<firstDowIndex;i++){
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+  for(let day=1; day<=daysInMonth; day++){
+    const dateStr = `2026-07-${String(day).padStart(2,'0')}`;
+    const evt = events.find(e => e.date === dateStr);
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (evt ? ' ' + evt.impact : '') + (dateStr === '2026-07-03' ? ' today' : '');
+    let inner = `<div class="num">${day}</div>`;
+    if(evt){ inner += `<div class="evt${evt.gann ? ' gann' : ''}">${evt.label}</div>`; }
+    inner += `<textarea placeholder="note"></textarea>`;
+    cell.innerHTML = inner;
+    grid.appendChild(cell);
+  }
+
+  /* ===== CALCULATOR LOGIC ===== */
+  let currentRisk = 1;
+  let direction = 'buy';
+
+  function setDirection(dir){
+    direction = dir;
+    document.getElementById('buyBtn').classList.toggle('active', dir === 'buy');
+    document.getElementById('sellBtn').classList.toggle('active', dir === 'sell');
+    calc();
+  }
+  function setRisk(val, btn){
+    currentRisk = val;
+    document.querySelectorAll('.toggle-btn[data-risk]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('customRisk').style.display = 'none';
+    calc();
+  }
+  function enableCustom(btn){
+    document.querySelectorAll('.toggle-btn[data-risk]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const custom = document.getElementById('customRisk');
+    custom.style.display = 'block';
+    custom.focus();
+    currentRisk = parseFloat(custom.value) || 0;
+    calc();
+  }
+  function calc(){
+    const account = parseFloat(document.getElementById('account').value) || 0;
+    const entry = parseFloat(document.getElementById('entry').value) || 0;
+    const slPrice = parseFloat(document.getElementById('slPrice').value) || 0;
+    const tpPrice = parseFloat(document.getElementById('tpPrice').value) || 0;
+    const pipSize = parseFloat(document.getElementById('pipSize').value) || 0;
+    const pipValue = parseFloat(document.getElementById('pipValue').value) || 0;
+    const customInput = document.getElementById('customRisk');
+    if(customInput.style.display === 'block'){ currentRisk = parseFloat(customInput.value) || 0; }
+
+    const stopPips = pipSize > 0 ? Math.abs(entry - slPrice) / pipSize : 0;
+    const tpPips = pipSize > 0 ? Math.abs(tpPrice - entry) / pipSize : 0;
+    const rr = stopPips > 0 ? (tpPips / stopPips) : 0;
+    const riskAmount = account * (currentRisk / 100);
+    let lots = 0;
+    if(stopPips > 0 && pipValue > 0){ lots = (riskAmount / (stopPips * pipValue)) * 0.01; }
+    const rewardAmount = riskAmount * rr;
+
+    document.getElementById('lotOut').textContent = lots.toFixed(3) + ' lots';
+    document.getElementById('riskOut').textContent = '$' + riskAmount.toFixed(2);
+    document.getElementById('riskPctOut').textContent = currentRisk.toFixed(2) + '%';
+    document.getElementById('stopPipsOut').textContent = stopPips.toFixed(1) + ' pips';
+    document.getElementById('tpPipsOut').textContent = tpPips.toFixed(1) + ' pips';
+    document.getElementById('rrOut').textContent = '1 : ' + rr.toFixed(2);
+    document.getElementById('rewardOut').textContent = '$' + rewardAmount.toFixed(2);
+
+    document.getElementById('flag').classList.toggle('show', currentRisk > 1);
+    document.getElementById('rrFlag').classList.toggle('show', rr > 0 && rr < 1.5);
+
+    let dirMismatch = false;
+    if(entry && slPrice && tpPrice){
+      if(direction === 'buy' && (slPrice >= entry || tpPrice <= entry)) dirMismatch = true;
+      if(direction === 'sell' && (slPrice <= entry || tpPrice >= entry)) dirMismatch = true;
+    }
+    document.getElementById('dirFlag').classList.toggle('show', dirMismatch);
+  }
+  ['account','entry','slPrice','tpPrice','pipSize','pipValue'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calc);
+  });
+  document.getElementById('customRisk').addEventListener('input', calc);
+  calc();
+
+  /* ===== JOURNAL LOGIC ===== */
+  let currentMonth = '2026-07';
+  let entries = [];
+
+  function daysInMonthCount(ym){
+    const [y,m] = ym.split('-').map(Number);
+    return new Date(y, m, 0).getDate();
+  }
+  function blankEntries(count, startDay){
+    return Array.from({length: count}, (_, i) => ({
+      day: startDay + i, date:'', pair:'XAUUSD', session:'', pattern:'', dir:'', result:'', slHit:false, risk:'', notes:''
+    }));
+  }
+  async function loadJournal(ym){
+    const n = daysInMonthCount(ym);
+    entries = blankEntries(n, 1);
+    renderJournalTable();
+
+    document.getElementById('statusMsg').textContent = 'Loading saved entries…';
+    try{
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+      const res = await Promise.race([window.storage.get('journal:' + ym, false), timeout]);
+      if(res && res.value){
+        let saved = JSON.parse(res.value);
+        if(saved.length < n){
+          saved = saved.concat(blankEntries(n - saved.length, saved.length + 1));
+        }
+        entries = saved;
+        renderJournalTable();
+      }
+      document.getElementById('statusMsg').textContent = '';
+    } catch(e){
+      document.getElementById('statusMsg').textContent = 'No saved data found for this month — starting fresh.';
+    }
+  }
+  async function saveJournal(){
+    document.getElementById('statusMsg').textContent = 'Saving…';
+    try{
+      await window.storage.set('journal:' + currentMonth, JSON.stringify(entries), false);
+      document.getElementById('statusMsg').textContent = 'Saved ✓';
+    } catch(e){
+      document.getElementById('statusMsg').textContent = 'Save failed — try again';
+    }
+  }
+  function exportJournal(){
+    const blob = new Blob([JSON.stringify(entries, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `journal-${currentMonth}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('statusMsg').textContent = 'Exported ✓';
+  }
+  function importJournal(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!Array.isArray(data)) throw new Error('bad format');
+        entries = data;
+        renderJournalTable();
+        saveJournal();
+        document.getElementById('statusMsg').textContent = 'Imported ✓';
+      } catch(err){
+        document.getElementById('statusMsg').textContent = 'Import failed — file not recognized';
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+  function clearMonth(){
+    if(!confirm('Clear all entries for this month?')) return;
+    entries = blankEntries(daysInMonthCount(currentMonth), 1);
+    renderJournalTable();
+    saveJournal();
+  }
+  function updateEntry(day, field, value){
+    const e = entries.find(x => x.day === day);
+    if(e) e[field] = value;
+    renderJournalStats();
+  }
+  function renderJournalTable(){
+    const body = document.getElementById('journalBody');
+    body.innerHTML = '';
+    let running = 0;
+    entries.forEach(e => {
+      const result = parseFloat(e.result);
+      const hasResult = !isNaN(result) && e.result !== '';
+      if(hasResult) running += result;
+      const rowClass = hasResult ? (result > 0 ? 'row-profit' : (result < 0 ? 'row-loss' : '')) : '';
+      const tr = document.createElement('tr');
+      tr.className = rowClass;
+      tr.innerHTML = `
+        <td class="day-num" data-label="#">${e.day}</td>
+        <td data-label="Date"><input type="text" placeholder="dd/mm" value="${e.date}" onchange="updateEntry(${e.day},'date',this.value)"></td>
+        <td data-label="Pair"><input type="text" value="${e.pair}" onchange="updateEntry(${e.day},'pair',this.value)"></td>
+        <td data-label="Session">
+          <select onchange="updateEntry(${e.day},'session',this.value)">
+            <option value="" ${!e.session?'selected':''}>—</option>
+            <option value="Sydney" ${e.session==='Sydney'?'selected':''}>Sydney</option>
+            <option value="Tokyo" ${e.session==='Tokyo'?'selected':''}>Tokyo</option>
+            <option value="London" ${e.session==='London'?'selected':''}>London</option>
+            <option value="NY" ${e.session==='NY'?'selected':''}>New York</option>
+            <option value="Overlap" ${e.session==='Overlap'?'selected':''}>London–NY overlap</option>
+          </select>
+        </td>
+        <td data-label="Pattern">
+          <select onchange="updateEntry(${e.day},'pattern',this.value)">
+            <option value="" ${!e.pattern?'selected':''}>—</option>
+            <option value="Hammer" ${e.pattern==='Hammer'?'selected':''}>Hammer</option>
+            <option value="Inverted Hammer" ${e.pattern==='Inverted Hammer'?'selected':''}>Inv. Hammer</option>
+            <option value="Bullish Engulfing" ${e.pattern==='Bullish Engulfing'?'selected':''}>Bull Engulf</option>
+            <option value="Bearish Engulfing" ${e.pattern==='Bearish Engulfing'?'selected':''}>Bear Engulf</option>
+            <option value="Hanging Man" ${e.pattern==='Hanging Man'?'selected':''}>Hanging Man</option>
+            <option value="Trendline+9EMA" ${e.pattern==='Trendline+9EMA'?'selected':''}>Trendline+9EMA</option>
+            <option value="Liquidity sweep" ${e.pattern==='Liquidity sweep'?'selected':''}>Liquidity sweep</option>
+            <option value="BOS/CHoCH" ${e.pattern==='BOS/CHoCH'?'selected':''}>BOS/CHoCH</option>
+            <option value="FVG" ${e.pattern==='FVG'?'selected':''}>FVG</option>
+            <option value="Support/Resistance" ${e.pattern==='Support/Resistance'?'selected':''}>Support/Resistance</option>
+            <option value="Other" ${e.pattern==='Other'?'selected':''}>Other</option>
+          </select>
+        </td>
+        <td data-label="Dir">
+          <select onchange="updateEntry(${e.day},'dir',this.value)">
+            <option value="" ${e.dir===''?'selected':''}>—</option>
+            <option value="Buy" ${e.dir==='Buy'?'selected':''}>Buy</option>
+            <option value="Sell" ${e.dir==='Sell'?'selected':''}>Sell</option>
+          </select>
+        </td>
+        <td data-label="Result ($)" class="result-cell ${hasResult ? (result>=0?'pos':'neg') : ''}">
+          <input type="number" step="0.01" value="${e.result}" placeholder="0.00" onchange="updateEntry(${e.day},'result',this.value)">
+        </td>
+        <td data-label="SL Hit" class="sl-hit-cell"><input type="checkbox" ${e.slHit ? 'checked' : ''} onchange="updateEntry(${e.day},'slHit',this.checked)"></td>
+        <td data-label="Risk %"><input type="number" step="0.1" value="${e.risk}" placeholder="1" onchange="updateEntry(${e.day},'risk',this.value)"></td>
+        <td data-label="Notes"><input type="text" value="${e.notes}" placeholder="setup / reason" onchange="updateEntry(${e.day},'notes',this.value)"></td>
+        <td data-label="Running total" class="run-cell ${running>=0?'running pos':'running neg'}">$${running.toFixed(2)}</td>
+      `;
+      body.appendChild(tr);
+    });
+    renderJournalStats();
+  }
+  function renderJournalStats(){
+    const logged = entries.filter(e => e.result !== '' && !isNaN(parseFloat(e.result)));
+    const results = logged.map(e => parseFloat(e.result));
+    const total = results.reduce((a,b) => a+b, 0);
+    const wins = results.filter(r => r > 0).length;
+    const winRate = logged.length ? Math.round((wins / logged.length) * 100) : null;
+    const best = results.length ? Math.max(...results) : 0;
+    const worst = results.length ? Math.min(...results) : 0;
+
+    document.getElementById('daysLogged').textContent = `${logged.length} / ${entries.length}`;
+    document.getElementById('winRate').textContent = winRate === null ? '—' : winRate + '%';
+    document.getElementById('bestDay').textContent = '$' + best.toFixed(2);
+    document.getElementById('worstDay').textContent = '$' + worst.toFixed(2);
+    document.getElementById('slHitCount').textContent = entries.filter(e => e.slHit).length;
+    if(typeof renderSessionPerf === 'function') renderSessionPerf();
+
+    const monthTotalEl = document.getElementById('monthTotal');
+    monthTotalEl.textContent = (total >= 0 ? '+$' : '-$') + Math.abs(total).toFixed(2);
+    monthTotalEl.className = 'big ' + (total >= 0 ? 'pos' : 'neg');
+
+    const verdict = document.getElementById('verdictText');
+    if(logged.length === 0){
+      verdict.textContent = 'Log a trade to begin.';
+    } else if(total > 0){
+      verdict.textContent = `In profit this month — ${wins}/${logged.length} winning days.`;
+    } else if(total < 0){
+      verdict.textContent = `In loss this month — review the notes column on red days before next month.`;
+    } else {
+      verdict.textContent = 'Break-even so far.';
+    }
+  }
+  document.getElementById('monthSel').addEventListener('change', async (e) => {
+    currentMonth = e.target.value;
+    await loadJournal(currentMonth);
+  });
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => loadJournal(currentMonth));
+  } else {
+    loadJournal(currentMonth);
+  }
+
+  /* ===== SESSIONS ===== */
+  // Windows in UTC hours [start, end), end can be < start meaning it wraps past midnight
+  const sessionDefs = [
+    {name:'Sydney', startUTC:22, endUTC:7},
+    {name:'Tokyo', startUTC:0, endUTC:9},
+    {name:'London', startUTC:8, endUTC:16.5},
+    {name:'New York', startUTC:13, endUTC:22},
+  ];
+  const OVERLAP = {startUTC:13, endUTC:16.5};
+
+  function inWindow(hourUTC, start, end){
+    if(start < end) return hourUTC >= start && hourUTC < end;
+    return hourUTC >= start || hourUTC < end; // wraps midnight
+  }
+  function fmtUlyanovsk(hourUTC){
+    let h = (hourUTC + 4) % 24;
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  }
+  function fmtUTC(hourUTC){
+    const hh = Math.floor(hourUTC % 24);
+    const mm = Math.round((hourUTC - hh) * 60);
+    return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  }
+
+  function renderSessionCards(){
+    const nowUTC = new Date();
+    const hourUTC = nowUTC.getUTCHours() + nowUTC.getUTCMinutes()/60;
+    const active = [];
+    const cardsEl = document.getElementById('sessionCards');
+    cardsEl.innerHTML = '';
+    sessionDefs.forEach(s => {
+      const isActive = inWindow(hourUTC, s.startUTC, s.endUTC);
+      if(isActive) active.push(s.name);
+      const card = document.createElement('div');
+      card.className = 'session-card' + (isActive ? ' active' : '');
+      card.innerHTML = `
+        <div class="badge"></div>
+        <div class="name">${s.name}</div>
+        <div class="time">UTC ${fmtUTC(s.startUTC)}–${fmtUTC(s.endUTC)}</div>
+        <div class="time">ULY ${fmtUlyanovsk(s.startUTC)}–${fmtUlyanovsk(s.endUTC)}</div>
+      `;
+      cardsEl.appendChild(card);
+    });
+    const inOverlap = inWindow(hourUTC, OVERLAP.startUTC, OVERLAP.endUTC);
+    const nameEl = document.getElementById('liveSessionName');
+    if(inOverlap){
+      nameEl.textContent = 'London–NY Overlap — peak volatility window';
+    } else if(active.length){
+      nameEl.textContent = active.join(' + ') + ' session active';
+    } else {
+      nameEl.textContent = 'Between sessions — thin liquidity';
+    }
+  }
+
+  function renderSessionPerf(){
+    const body = document.getElementById('sessionPerfBody');
+    if(!body) return;
+    const sessions = ['Sydney','Tokyo','London','NY','Overlap'];
+    const rows = sessions.map(name => {
+      const trades = (entries || []).filter(e => e.session === name && e.result !== '' && !isNaN(parseFloat(e.result)));
+      const results = trades.map(e => parseFloat(e.result));
+      const total = results.reduce((a,b)=>a+b,0);
+      const wins = results.filter(r=>r>0).length;
+      const wr = trades.length ? Math.round((wins/trades.length)*100) : null;
+      return {name, count: trades.length, wr, total};
+    });
+    const best = rows.filter(r => r.count > 0).sort((a,b) => b.total - a.total)[0];
+    body.innerHTML = rows.map(r => `
+      <tr class="${best && r.name === best.name && r.count > 0 ? 'top-session' : ''}">
+        <td>${r.name === 'NY' ? 'New York' : (r.name === 'Overlap' ? 'London–NY overlap' : r.name)}</td>
+        <td>${r.count}</td>
+        <td>${r.wr === null ? '—' : r.wr + '%'}</td>
+        <td class="${best && r.name===best.name && r.count>0 ? 'best' : ''}">${r.count ? (r.total>=0?'+$':'-$')+Math.abs(r.total).toFixed(2) : '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  renderSessionCards();
+  setInterval(renderSessionCards, 60000);
+
+  /* ===== BACKTESTING LOG ===== */
+  let backtests = [];
+
+  function blankBacktest(){
+    return { id: Date.now() + Math.random(), date:'', pair:'XAUUSD', tag:'', tf:'H1', result:'', r:'', notes:'' };
+  }
+  async function loadBacktest(){
+    document.getElementById('backtestBody').innerHTML = '';
+    backtests = [];
+    renderBacktestTable();
+    try{
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+      const res = await Promise.race([window.storage.get('backtestLog', false), timeout]);
+      if(res && res.value){
+        backtests = JSON.parse(res.value);
+      }
+    } catch(e){
+      backtests = [];
+    }
+    if(backtests.length === 0){ backtests.push(blankBacktest()); }
+    renderBacktestTable();
+  }
+  async function saveBacktest(){
+    document.getElementById('btStatus').textContent = 'Saving…';
+    try{
+      await window.storage.set('backtestLog', JSON.stringify(backtests), false);
+      document.getElementById('btStatus').textContent = 'Saved ✓';
+    } catch(e){
+      document.getElementById('btStatus').textContent = 'Save failed — try again';
+    }
+  }
+  function exportBacktest(){
+    const blob = new Blob([JSON.stringify(backtests, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backtest-log.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('btStatus').textContent = 'Exported ✓';
+  }
+  function importBacktest(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!Array.isArray(data)) throw new Error('bad format');
+        backtests = data.length ? data : [blankBacktest()];
+        renderBacktestTable();
+        saveBacktest();
+        document.getElementById('btStatus').textContent = 'Imported ✓';
+      } catch(err){
+        document.getElementById('btStatus').textContent = 'Import failed — file not recognized';
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+  function addBacktestRow(){
+    backtests.push(blankBacktest());
+    renderBacktestTable();
+  }
+  function delBacktestRow(id){
+    backtests = backtests.filter(b => b.id !== id);
+    if(backtests.length === 0) backtests.push(blankBacktest());
+    renderBacktestTable();
+  }
+  function updateBacktest(id, field, value){
+    const b = backtests.find(x => x.id === id);
+    if(b) b[field] = value;
+    renderBacktestStats();
+  }
+  function renderBacktestTable(){
+    const body = document.getElementById('backtestBody');
+    body.innerHTML = backtests.map(b => `
+      <tr class="${b.result==='Win'?'bt-win':(b.result==='Loss'?'bt-loss':'')}">
+        <td data-label="Date"><input type="text" placeholder="dd/mm" value="${b.date}" onchange="updateBacktest(${b.id},'date',this.value)"></td>
+        <td data-label="Pair"><input type="text" value="${b.pair}" onchange="updateBacktest(${b.id},'pair',this.value)"></td>
+        <td data-label="Setup tag">
+          <select onchange="updateBacktest(${b.id},'tag',this.value)">
+            <option value="" ${!b.tag?'selected':''}>—</option>
+            <option value="Hammer" ${b.tag==='Hammer'?'selected':''}>Hammer</option>
+            <option value="Inverted Hammer" ${b.tag==='Inverted Hammer'?'selected':''}>Inverted Hammer</option>
+            <option value="Bullish Engulfing" ${b.tag==='Bullish Engulfing'?'selected':''}>Bullish Engulfing</option>
+            <option value="Bearish Engulfing" ${b.tag==='Bearish Engulfing'?'selected':''}>Bearish Engulfing</option>
+            <option value="Hanging Man" ${b.tag==='Hanging Man'?'selected':''}>Hanging Man</option>
+            <option value="Trendline+9EMA" ${b.tag==='Trendline+9EMA'?'selected':''}>Trendline+9EMA</option>
+            <option value="Liquidity sweep" ${b.tag==='Liquidity sweep'?'selected':''}>Liquidity sweep</option>
+            <option value="BOS/CHoCH" ${b.tag==='BOS/CHoCH'?'selected':''}>BOS/CHoCH</option>
+            <option value="FVG" ${b.tag==='FVG'?'selected':''}>FVG</option>
+            <option value="Order block retest" ${b.tag==='Order block retest'?'selected':''}>Order block retest</option>
+            <option value="Support/Resistance" ${b.tag==='Support/Resistance'?'selected':''}>Support/Resistance</option>
+            <option value="Other" ${b.tag==='Other'?'selected':''}>Other</option>
+          </select>
+        </td>
+        <td data-label="Timeframe">
+          <select onchange="updateBacktest(${b.id},'tf',this.value)">
+            ${['M15','H1','H4','D1'].map(tf => `<option value="${tf}" ${b.tf===tf?'selected':''}>${tf}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="Result">
+          <select onchange="updateBacktest(${b.id},'result',this.value)">
+            <option value="" ${!b.result?'selected':''}>—</option>
+            <option value="Win" ${b.result==='Win'?'selected':''}>Win</option>
+            <option value="Loss" ${b.result==='Loss'?'selected':''}>Loss</option>
+            <option value="BE" ${b.result==='BE'?'selected':''}>Break-even</option>
+          </select>
+        </td>
+        <td data-label="R multiple"><input type="number" step="0.1" value="${b.r}" placeholder="1.5" onchange="updateBacktest(${b.id},'r',this.value)"></td>
+        <td data-label="Notes"><input type="text" value="${b.notes}" placeholder="chart / reasoning" onchange="updateBacktest(${b.id},'notes',this.value)"></td>
+        <td><button class="bt-del" onclick="delBacktestRow(${b.id})">✕</button></td>
+      </tr>
+    `).join('');
+    renderBacktestStats();
+  }
+  function renderBacktestStats(){
+    const total = backtests.filter(b => b.result).length;
+    const wins = backtests.filter(b => b.result === 'Win').length;
+    const rVals = backtests.filter(b => b.r !== '' && !isNaN(parseFloat(b.r))).map(b => parseFloat(b.r));
+    const avgR = rVals.length ? (rVals.reduce((a,b)=>a+b,0)/rVals.length) : null;
+
+    const tagStats = {};
+    backtests.forEach(b => {
+      if(!b.tag || !b.result) return;
+      if(!tagStats[b.tag]) tagStats[b.tag] = {wins:0, total:0};
+      tagStats[b.tag].total++;
+      if(b.result === 'Win') tagStats[b.tag].wins++;
+    });
+    let bestTag = '—';
+    let bestRate = -1;
+    Object.keys(tagStats).forEach(tag => {
+      const rate = tagStats[tag].wins / tagStats[tag].total;
+      if(tagStats[tag].total >= 2 && rate > bestRate){ bestRate = rate; bestTag = tag; }
+    });
+
+    document.getElementById('btCount').textContent = total;
+    document.getElementById('btWinRate').textContent = total ? Math.round((wins/total)*100) + '%' : '—';
+    document.getElementById('btAvgR').textContent = avgR === null ? '—' : avgR.toFixed(2) + 'R';
+    document.getElementById('btBestTag').textContent = bestTag === '—' ? '—' : bestTag + ` (${Math.round(bestRate*100)}%)`;
+  }
+
+  loadBacktest();
+
+  /* ===== AI INSIGHTS ===== */
+  async function callClaude(prompt){
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await response.json();
+    return (data.content || []).map(c => c.text || '').join('\n').trim();
+  }
+
+  function setAiLoading(outId, btn, isLoading){
+    const out = document.getElementById(outId);
+    out.classList.add('show');
+    if(isLoading){
+      out.classList.add('loading');
+      out.textContent = 'Thinking…';
+      if(btn) btn.disabled = true;
+    } else {
+      out.classList.remove('loading');
+      if(btn) btn.disabled = false;
+    }
+  }
+
+  async function runTradeReview(btn){
+    setAiLoading('out-review', btn, true);
+    const data = entries.filter(e => e.result !== '').map(e => ({date:e.date, result:e.result, session:e.session, pattern:e.pattern, slHit:e.slHit, notes:e.notes}));
+    if(data.length === 0){
+      document.getElementById('out-review').textContent = 'No trades logged yet this month — fill in the Trade Journal tab first.';
+      setAiLoading('out-review', btn, false);
+      return;
+    }
+    const prompt = `You are reviewing a retail trader's monthly journal entries (XAUUSD, uses SMC + Gann cycles, 0.5-1% risk rule). Data: ${JSON.stringify(data)}. In under 150 words, identify real patterns only if present (e.g. link between certain notes/moods and losses, a session that underperforms, discipline breaks like oversized risk). Do not give trading signals or predict future price. Be direct and constructive. Reply in natural Hinglish (mix of Hindi and English, Latin script).`;
+    try{
+      const text = await callClaude(prompt);
+      document.getElementById('out-review').textContent = text || 'No response received.';
+    } catch(e){
+      document.getElementById('out-review').textContent = 'Could not reach AI right now — try again in a moment.';
+    }
+    setAiLoading('out-review', btn, false);
+  }
+
+  async function runWeeklySummary(btn){
+    setAiLoading('out-weekly', btn, true);
+    const last7 = entries.filter(e => e.result !== '').slice(-7);
+    if(last7.length === 0){
+      document.getElementById('out-weekly').textContent = 'No trades logged in the last 7 days yet.';
+      setAiLoading('out-weekly', btn, false);
+      return;
+    }
+    const prompt = `Summarize this trader's last 7 logged trading days in 3-4 short lines. Data: ${JSON.stringify(last7)}. Mention win rate, one repeated mistake if visible, and one honest note of encouragement if warranted. No trading signals. Reply in natural Hinglish (Latin script).`;
+    try{
+      const text = await callClaude(prompt);
+      document.getElementById('out-weekly').textContent = text || 'No response received.';
+    } catch(e){
+      document.getElementById('out-weekly').textContent = 'Could not reach AI right now — try again in a moment.';
+    }
+    setAiLoading('out-weekly', btn, false);
+  }
+
+  async function runPsychCheck(btn){
+    setAiLoading('out-psych', btn, true);
+    const notes = entries.filter(e => e.notes && e.notes.trim()).map(e => ({date:e.date, result:e.result, notes:e.notes}));
+    if(notes.length === 0){
+      document.getElementById('out-psych').textContent = 'No notes written yet — add a short note to your trades in the Journal tab.';
+      setAiLoading('out-psych', btn, false);
+      return;
+    }
+    const prompt = `Analyze these trade notes for genuine signs of revenge trading, overconfidence, or fear-based exits. Data: ${JSON.stringify(notes)}. Only report a pattern if it's actually present with evidence from the notes — if nothing concerning, say so plainly. Under 100 words. Reply in natural Hinglish (Latin script).`;
+    try{
+      const text = await callClaude(prompt);
+      document.getElementById('out-psych').textContent = text || 'No response received.';
+    } catch(e){
+      document.getElementById('out-psych').textContent = 'Could not reach AI right now — try again in a moment.';
+    }
+    setAiLoading('out-psych', btn, false);
+  }
+
+  async function runBacktestPatterns(btn){
+    setAiLoading('out-bt', btn, true);
+    const data = backtests.filter(b => b.result).map(b => ({tag:b.tag, tf:b.tf, result:b.result, r:b.r, notes:b.notes}));
+    if(data.length === 0){
+      document.getElementById('out-bt').textContent = 'No completed backtests yet — log a few in the Backtesting Log tab first.';
+      setAiLoading('out-bt', btn, false);
+      return;
+    }
+    const prompt = `Look at this trader's backtesting log for XAUUSD SMC/Gann setups. Data: ${JSON.stringify(data)}. In under 150 words, identify which setup tag(s) look genuinely consistent (not just highest win-rate on tiny sample size), and flag if sample size is too small to trust yet. No price predictions. Reply in natural Hinglish (Latin script).`;
+    try{
+      const text = await callClaude(prompt);
+      document.getElementById('out-bt').textContent = text || 'No response received.';
+    } catch(e){
+      document.getElementById('out-bt').textContent = 'Could not reach AI right now — try again in a moment.';
+    }
+    setAiLoading('out-bt', btn, false);
+  }
+
+  async function runNewsExplainer(btn){
+    const headline = document.getElementById('newsHeadlineInput').value.trim();
+    if(!headline){
+      document.getElementById('out-news').classList.add('show');
+      document.getElementById('out-news').textContent = 'Paste a headline first.';
+      return;
+    }
+    setAiLoading('out-news', btn, true);
+    const prompt = `Headline: "${headline}". In under 100 words, explain educationally how this type of economic news event has historically tended to move XAUUSD (gold) and why (rates/USD/risk-sentiment mechanism). Do NOT predict what will happen this time — frame it as historical tendency only. Reply in natural Hinglish (Latin script).`;
+    try{
+      const text = await callClaude(prompt);
+      document.getElementById('out-news').textContent = text || 'No response received.';
+    } catch(e){
+      document.getElementById('out-news').textContent = 'Could not reach AI right now — try again in a moment.';
+    }
+    setAiLoading('out-news', btn, false);
+  }
+</script>
+
+</div>
+</body>
+</html>
